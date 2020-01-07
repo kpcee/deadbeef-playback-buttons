@@ -33,12 +33,12 @@ static ddb_gtkui_t *gtkui_plugin = NULL;
 
 typedef struct {
     ddb_gtkui_widget_t base;
-    GtkWidget *playback_button;
-    GtkWidget *loop_button;
+    GtkWidget *shuffle_button;
+    GtkWidget *repeat_button;
 } w_playback_buttons_t;
 
 static void
-playback_button_set_text (GtkWidget *widget) {
+shuffle_button_set_text (GtkWidget *widget) {
     if (!widget) {
         return;
     }
@@ -67,7 +67,7 @@ playback_button_set_text (GtkWidget *widget) {
 }
 
 static void
-loop_button_set_text (GtkWidget *widget) {
+repeat_button_set_text (GtkWidget *widget) {
     if (!widget) {
         return;
     }
@@ -97,14 +97,14 @@ playback_buttons_message (ddb_gtkui_widget_t *widget, uint32_t id, uintptr_t ctx
     w_playback_buttons_t *w = (w_playback_buttons_t *)widget;
     
     if (id == DB_EV_CONFIGCHANGED) {
-        playback_button_set_text (w->playback_button);
-        loop_button_set_text (w->loop_button);
+        shuffle_button_set_text (w->shuffle_button);
+        repeat_button_set_text (w->repeat_button);
     }
     return 0;
 }
 
 static void
-button_loop_clicked (GtkWidget *widget, gpointer user_data) {
+repeat_button_clicked (GtkWidget *widget, gpointer user_data) {
     int repeat_mode_old;
     int repeat_mode = repeat_mode_old = deadbeef->streamer_get_repeat ();
 
@@ -117,7 +117,7 @@ button_loop_clicked (GtkWidget *widget, gpointer user_data) {
 }
 
 static void
-button_order_clicked (GtkWidget *widget, gpointer user_data) {
+shuffle_button_clicked (GtkWidget *widget, gpointer user_data) {
     int shuffle_mode_old;
     int shuffle_mode = shuffle_mode_old = deadbeef->streamer_get_shuffle ();
     
@@ -137,23 +137,23 @@ playback_buttons_init (ddb_gtkui_widget_t *ww) {
     gtk_widget_show (hbox);
     gtk_container_add (GTK_CONTAINER (w->base.widget), hbox);
 
-    w->playback_button = gtk_button_new_with_label ("");
-    gtk_widget_show (w->playback_button);
-    gtk_box_pack_start (GTK_BOX (hbox), w->playback_button, FALSE, TRUE, 0);
-    gtk_widget_set_size_request(w->playback_button, 110, 32);
-    g_signal_connect_after ((gpointer) w->playback_button, "clicked", G_CALLBACK (button_order_clicked), w);
+    w->shuffle_button = gtk_button_new_with_label ("");
+    gtk_widget_show (w->shuffle_button);
+    gtk_box_pack_start (GTK_BOX (hbox), w->shuffle_button, FALSE, TRUE, 0);
+    gtk_widget_set_size_request(w->shuffle_button, 110, 32);
+    g_signal_connect_after ((gpointer) w->shuffle_button, "clicked", G_CALLBACK (shuffle_button_clicked), w);
 
-    w->loop_button = gtk_button_new_with_label ("");
-    gtk_widget_show (w->loop_button);
-    gtk_box_pack_start (GTK_BOX (hbox), w->loop_button, FALSE, TRUE, 0);
-    gtk_widget_set_size_request(w->loop_button, 110, 32);
-    g_signal_connect_after ((gpointer) w->loop_button, "clicked", G_CALLBACK (button_loop_clicked), w);
+    w->repeat_button = gtk_button_new_with_label ("");
+    gtk_widget_show (w->repeat_button);
+    gtk_box_pack_start (GTK_BOX (hbox), w->repeat_button, FALSE, TRUE, 0);
+    gtk_widget_set_size_request(w->repeat_button, 110, 32);
+    g_signal_connect_after ((gpointer) w->repeat_button, "clicked", G_CALLBACK (repeat_button_clicked), w);
  
-    playback_button_set_text (w->playback_button);
-    loop_button_set_text(w->loop_button);
+    shuffle_button_set_text (w->shuffle_button);
+    repeat_button_set_text(w->repeat_button);
 
-    gtkui_plugin->w_override_signals (w->playback_button, w);
-    gtkui_plugin->w_override_signals (w->loop_button, w);
+    gtkui_plugin->w_override_signals (w->shuffle_button, w);
+    gtkui_plugin->w_override_signals (w->repeat_button, w);
 }
 
 static void
@@ -220,7 +220,7 @@ static DB_misc_t plugin = {
     .plugin.id = "playback_buttons_widget",
 #endif
     .plugin.name = "Playback Buttons",
-    .plugin.descr = "Plugin to easily change the playback shuffle and loop.",
+    .plugin.descr = "Plugin to easily change the playback shuffle and repeat.",
     .plugin.copyright =
         "Copyright (C) 2019 kpcee\n"
         "\n"
