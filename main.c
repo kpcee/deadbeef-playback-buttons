@@ -38,8 +38,7 @@ typedef struct {
 } w_playback_buttons_t;
 
 static void
-playback_button_set_text (GtkWidget *widget)
-{
+playback_button_set_text (GtkWidget *widget) {
     if (!widget) {
         return;
     }
@@ -68,8 +67,7 @@ playback_button_set_text (GtkWidget *widget)
 }
 
 static void
-loop_button_set_text (GtkWidget *widget)
-{
+loop_button_set_text (GtkWidget *widget) {
     if (!widget) {
         return;
     }
@@ -95,34 +93,23 @@ loop_button_set_text (GtkWidget *widget)
 }
 
 static int
-playback_buttons_message (ddb_gtkui_widget_t *widget, uint32_t id, uintptr_t ctx, uint32_t p1, uint32_t p2)
-{
+playback_buttons_message (ddb_gtkui_widget_t *widget, uint32_t id, uintptr_t ctx, uint32_t p1, uint32_t p2) {
     w_playback_buttons_t *w = (w_playback_buttons_t *)widget;
     
-    switch (id) {
-        case DB_EV_CONFIGCHANGED:
-            playback_button_set_text (w->playback_button);
-            loop_button_set_text (w->loop_button);
-            break;
+    if (id == DB_EV_CONFIGCHANGED) {
+        playback_button_set_text (w->playback_button);
+        loop_button_set_text (w->loop_button);
     }
     return 0;
 }
 
 static void
-button_loop_clicked (GtkWidget *widget, gpointer user_data)
-{
+button_loop_clicked (GtkWidget *widget, gpointer user_data) {
     int repeat_mode_old;
     int repeat_mode = repeat_mode_old = deadbeef->streamer_get_repeat ();
-    switch (repeat_mode) {
-    case DDB_REPEAT_SINGLE:
-        repeat_mode = DDB_REPEAT_ALL;
-        break;
-    case DDB_REPEAT_ALL:
-    default:
-        repeat_mode = DDB_REPEAT_SINGLE;
-        break;
-    }
 
+    repeat_mode = (repeat_mode == DDB_REPEAT_SINGLE) ? DDB_REPEAT_ALL : DDB_REPEAT_SINGLE;
+  
     if (repeat_mode != repeat_mode_old) {
         deadbeef->streamer_set_repeat (repeat_mode);
         deadbeef->sendmessage (DB_EV_CONFIGCHANGED, 0, 0, 0);
@@ -130,21 +117,12 @@ button_loop_clicked (GtkWidget *widget, gpointer user_data)
 }
 
 static void
-button_order_clicked (GtkWidget *widget, gpointer user_data)
-{
+button_order_clicked (GtkWidget *widget, gpointer user_data) {
     int shuffle_mode_old;
     int shuffle_mode = shuffle_mode_old = deadbeef->streamer_get_shuffle ();
     
-    switch (shuffle_mode) {
-    case DDB_SHUFFLE_OFF:
-        shuffle_mode = DDB_SHUFFLE_TRACKS;
-        break;
-    case DDB_SHUFFLE_TRACKS:
-    default:
-        shuffle_mode = DDB_SHUFFLE_OFF;
-        break;
-    }
-
+    shuffle_mode = (shuffle_mode == DDB_SHUFFLE_OFF) ? DDB_SHUFFLE_TRACKS : DDB_SHUFFLE_OFF;
+  
     if (shuffle_mode != shuffle_mode_old) {
         deadbeef->streamer_set_shuffle (shuffle_mode);
         deadbeef->sendmessage (DB_EV_CONFIGCHANGED, 0, 0, 0);
