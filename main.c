@@ -47,13 +47,13 @@ shuffle_button_set_text (GtkWidget *widget) {
     int shuffle_mode = deadbeef->streamer_get_shuffle () ;
     switch (shuffle_mode) {
     case DDB_SHUFFLE_OFF:
-        text = "Linear";
+        text = "Off";
         break;
     case DDB_SHUFFLE_TRACKS:
         text = "Shuffle";
         break;
     case DDB_SHUFFLE_ALBUMS:
-        text = "RND Album";
+        text = "Album";
         break;
     case DDB_SHUFFLE_RANDOM:
         text = "Random";
