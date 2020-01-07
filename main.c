@@ -60,9 +60,9 @@ shuffle_button_set_text (GtkWidget *widget) {
         break;
     }
 
-    const char *old = gtk_button_get_label (widget);
+    const char *old = gtk_button_get_label (GTK_BUTTON (widget));
     if (strcmp (text, old) != 0) {
-        gtk_button_set_label (widget, text);
+        gtk_button_set_label (GTK_BUTTON (widget), text);
     }
 }
 
@@ -86,9 +86,9 @@ repeat_button_set_text (GtkWidget *widget) {
         break;
     }
 
-    const char *old = gtk_button_get_label (widget);
+    const char *old = gtk_button_get_label (GTK_BUTTON (widget));
     if (strcmp (text, old) != 0) {
-        gtk_button_set_label (widget, text);
+        gtk_button_set_label (GTK_BUTTON (widget), text);
     }
 }
 
@@ -150,7 +150,7 @@ playback_buttons_init (ddb_gtkui_widget_t *ww) {
     g_signal_connect_after ((gpointer) w->repeat_button, "clicked", G_CALLBACK (repeat_button_clicked), w);
  
     shuffle_button_set_text (w->shuffle_button);
-    repeat_button_set_text(w->repeat_button);
+    repeat_button_set_text (w->repeat_button);
 
     gtkui_plugin->w_override_signals (w->shuffle_button, w);
     gtkui_plugin->w_override_signals (w->repeat_button, w);
@@ -167,7 +167,7 @@ w_playback_buttons_create (void) {
 
     w->base.widget = gtk_event_box_new ();
     w->base.init = playback_buttons_init;
-    w->base.destroy  = playback_buttons_destroy;
+    w->base.destroy = playback_buttons_destroy;
     w->base.message = playback_buttons_message;
    
     gtkui_plugin->w_override_signals (w->base.widget, w);
