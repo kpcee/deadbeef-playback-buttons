@@ -26,7 +26,108 @@
 #include "deadbeef.h"
 #include "gtkui_api.h"
 
-static void createSongList(void);
+typedef struct {
+    GtkWidget *widget;
+    char *text;
+    int button_type; // 0 = shuffle, 1 = repeat
+    int combo_index;
+    int combo_active;
+} ui_update_data_t;
+
+static void free_ui_update_data(ui_update_data_t *data) {
+    if (data) {
+        free(data->text);
+        free(data);
+    }
+}
+
+static gboolean update_shuffle_button_ui(gpointer user_data) {
+    ui_update_data_t *data = (ui_update_data_t *)user_data;
+    
+    if (data && data->widget && data->text) {
+        const char *old = gtk_button_get_label(GTK_BUTTON(data->widget));
+        if (strcmp(data->text, old) != 0) {
+            gtk_button_set_label(GTK_BUTTON(data->widget), data->text);
+        }
+    }
+    
+    free_ui_update_data(data);
+    return G_SOURCE_REMOVE;
+}
+
+static gboolean update_repeat_button_ui(gpointer user_data) {
+    ui_update_data_t *data = (ui_update_data_t *)user_data;
+    
+    if (data && data->widget && data->text) {
+        const char *old = gtk_button_get_label(GTK_BUTTON(data->widget));
+        if (strcmp(data->text, old) != 0) {
+            gtk_button_set_label(GTK_BUTTON(data->widget), data->text);
+        }
+    }
+    
+    free_ui_update_data(data);
+    return G_SOURCE_REMOVE;
+}
+
+static gboolean update_combobox_ui(gpointer user_data) {
+    ui_update_data_t *data = (ui_update_data_t *)user_data;
+    
+    if (data && data->widget) {
+        gtk_combo_box_set_active(GTK_COMBO_BOX(data->widget), data->combo_active);
+    }
+    
+    free_ui_update_data(data);
+    return G_SOURCE_REMOVE;
+}
+
+static void safe_shuffle_button_set_text(GtkWidget *widget, const char *text) {
+    if (!widget || !text) return;
+    
+    ui_update_data_t *data = malloc(sizeof(ui_update_data_t));
+    if (!data) return;
+    
+    data->widget = widget;
+    data->text = malloc(strlen(text) + 1);
+    if (!data->text) {
+        free(data);
+        return;
+    }
+    strcpy(data->text, text);
+    data->button_type = 0;
+    
+    g_idle_add(update_shuffle_button_ui, data);
+}
+
+static void safe_repeat_button_set_text(GtkWidget *widget, const char *text) {
+    if (!widget || !text) return;
+    
+    ui_update_data_t *data = malloc(sizeof(ui_update_data_t));
+    if (!data) return;
+    
+    data->widget = widget;
+    data->text = malloc(strlen(text) + 1);
+    if (!data->text) {
+        free(data);
+        return;
+    }
+    strcpy(data->text, text);
+    data->button_type = 1; // Repeat
+    
+    g_idle_add(update_repeat_button_ui, data);
+}
+
+static void safe_combo_box_set_active(GtkWidget *widget, int active) {
+    if (!widget) return;
+    
+    ui_update_data_t *data = malloc(sizeof(ui_update_data_t));
+    if (!data) return;
+    
+    data->widget = widget;
+    data->text = NULL;
+    data->combo_active = active;
+    
+    g_idle_add(update_combobox_ui, data);
+}
 
 // Constants
 #define INITIAL_ARRAY_SIZE 1
@@ -42,32 +143,18 @@ static pthread_mutex_t playlist_mutex;
 #define CHECK_NULL(ptr, msg) if (!(ptr)) { trace(msg "\n"); return; }
 #define CHECK_NULL_RET(ptr, msg, ret) if (!(ptr)) { trace(msg "\n"); return ret; }
 
+
 static void safe_strncpy(char *dest, const char *src, size_t dest_size) {
     if (!dest || dest_size == 0) {
         return;
     }
     
-    dest[0] = '\0'; 
+    dest[0] = '\0';
     
     if (src) {
         strncpy(dest, src, dest_size - 1);
         dest[dest_size - 1] = '\0';
     }
-}
-
-static void safe_strncat(char *dest, const char *src, size_t dest_size) {
-    if (!dest || !src || dest_size == 0) {
-        return;
-    }
-    
-    size_t dest_len = strlen(dest);
-    if (dest_len >= dest_size - 1) {
-        return;
-    }
-    
-    size_t copy_len = dest_size - dest_len - 1;
-    strncat(dest, src, copy_len);
-    dest[dest_size - 1] = '\0';
 }
 
 // Data structures
@@ -193,7 +280,6 @@ static int initArray(Array *a, size_t initialSize) {
 static int insertArray(Array *a, int element) {
     CHECK_NULL_RET(a, "Null pointer passed to insertArray", -1);
     
-    // Temporäres Lock für die Größenprüfung
     if (lock_mutex(&playlist_mutex, "insertArray") != 0) {
         return -1;
     }
@@ -320,7 +406,6 @@ static void cleanup(void) {
     
     // Free saved playlists
     for (size_t i = 0; i < saved_playlists_count; i++) {
-        // freeArray prüft selbst auf Mutex
         freeArray(&saved_playlists[i].playlist);
     }
     free(saved_playlists);
@@ -365,7 +450,6 @@ static void syncCurrentPlayedItem(void) {
         }
     }
 
-    // Fallback
     if (state.playlist.used > 0) {
         state.current_played_item = 0;
         trace("Track not found, resetting to first position\n");
@@ -391,7 +475,8 @@ static void shuffle_button_set_text(GtkWidget *widget) {
 
     const char *old = gtk_button_get_label(GTK_BUTTON(widget));
     if (strcmp(text, old) != 0) {
-        gtk_button_set_label(GTK_BUTTON(widget), text);
+        safe_shuffle_button_set_text(widget, text);
+        
         if (state.playlist.used > 1) {
             int value = state.playlist.array[state.current_played_item];
             if (shuffle_mode == DDB_SHUFFLE_OFF) {
@@ -425,7 +510,7 @@ static void repeat_button_set_text(GtkWidget *widget) {
 
     const char *old = gtk_button_get_label(GTK_BUTTON(widget));
     if (strcmp(text, old) != 0) {
-        gtk_button_set_label(GTK_BUTTON(widget), text);
+        safe_repeat_button_set_text(widget, text);
     }
 }
 
@@ -441,7 +526,7 @@ static int isPlaybackActive(void) {
 static void updateComboboxOnEmpty(w_playback_buttons_t *w) {
     if (state.playlist.used <= 0 && w && w->play_combobox) {
         state.play_mode = PLAYLIST;
-        gtk_combo_box_set_active(GTK_COMBO_BOX(w->play_combobox), PLAYLIST);
+        safe_combo_box_set_active(w->play_combobox, PLAYLIST);
     }
 }
 
@@ -463,7 +548,7 @@ static void createKeepArtistSongs(const char *artist, DB_playItem_t *it, int ind
     
     const char *track_artist = deadbeef->pl_find_meta_raw(it, "artist");
     if (!track_artist) {
-        return; 
+        return;
     }
     
     if (strstr(track_artist, artist) != NULL) {
@@ -479,7 +564,7 @@ static void createKeepAlbumSongs(const char *folder_uri, DB_playItem_t *it, int 
     
     const char *track_uri = deadbeef->pl_find_meta(it, ":URI");
     if (!track_uri) {
-        return; 
+        return;
     }
     
     if (strstr(track_uri, folder_uri) != NULL) {
@@ -539,11 +624,11 @@ static void extractFolderUriFromTrack(DB_playItem_t *track, char *folder_uri, si
         char *last_slash = strrchr(folder_uri, '/');
         if (last_slash) {
             *last_slash = '\0';
-          
+            
             char *cd_dir = strstr(folder_uri, "/CD");
             if (cd_dir) {
                 *cd_dir = '\0';
-             
+                
                 size_t len = strlen(folder_uri);
                 if (len > 0 && folder_uri[len-1] == '/') {
                     folder_uri[len-1] = '\0';
@@ -586,7 +671,7 @@ static void processTrackForCriteria(int criteria, DB_playItem_t *it, int index, 
     }
 }
 
-// Creates a playlist based on specified criteria (mit korrektem Cleanup)
+// Creates a playlist based on specified criteria
 static void createPlaylistByCriteria(int criteriaType) {
     CHECK_NULL(deadbeef, "Deadbeef API not initialized in createPlaylistByCriteria");
     
@@ -636,7 +721,7 @@ static void createPlaylistByCriteria(int criteriaType) {
     deadbeef->pl_unlock();
 }
 
-// Creates a pure random playlist (mit korrektem Cleanup)
+// Creates a pure random playlist
 static void createPureRandomList(void) {
     CHECK_NULL(deadbeef, "Deadbeef API not initialized in createPureRandomList");
     
@@ -685,7 +770,7 @@ static void createPureRandomList(void) {
     }
 }
 
-// Creates a smart random playlist with rating-based weighting (mit korrektem Cleanup)
+// Creates a smart random playlist with rating-based weighting
 static void createSmartRandomList(void) {
     CHECK_NULL(deadbeef, "Deadbeef API not initialized in createSmartRandomList");
     
@@ -727,7 +812,6 @@ static void createSmartRandomList(void) {
         for (int i = 0; i < weight; i++) {
             if (insertArray(&tempList, index) != 0) {
                 trace("Failed to insert weighted index into temp playlist\n");
-                // Cleanup
                 freeArray(&tempList);
                 deadbeef->pl_item_unref(it);
                 deadbeef->pl_item_unref(playedSong);
@@ -858,6 +942,7 @@ static void createSongList(void) {
     static time_t last_generation = 0;
     time_t now = time(NULL);
 
+    // Rate-Limiting
     if ((now - last_generation) < 2) {
         trace("Playlist generation throttled (last: %ld, now: %ld)\n", last_generation, now);
         return;
@@ -943,7 +1028,7 @@ static void restore_playback_button_state(void) {
         state.play_mode = mode;
         
         // Update combobox
-        gtk_combo_box_set_active(GTK_COMBO_BOX(p_buttons->play_combobox), mode);
+        safe_combo_box_set_active(p_buttons->play_combobox, mode);
         
         // Force playlist regeneration
         int plt_id = deadbeef->plt_get_curr_idx();
@@ -1002,7 +1087,7 @@ static int playback_buttons_message(ddb_gtkui_widget_t *widget, uint32_t id, uin
             && deadbeef->streamer_get_shuffle() != DDB_SHUFFLE_TRACKS) {
             state.play_mode = PLAYLIST;
             if (w->play_combobox) {
-                gtk_combo_box_set_active(GTK_COMBO_BOX(w->play_combobox), PLAYLIST);
+                safe_combo_box_set_active(w->play_combobox, PLAYLIST);
                 trace("Reset play mode to PLAYLIST due to incompatible shuffle mode\n");
             }
         }
@@ -1341,7 +1426,7 @@ static int handle_event(uint32_t current_event, uintptr_t ctx, uint32_t p1, uint
 static int context_action_helper(PlayModes new_play_mode) {
     state.play_mode = new_play_mode;
     if (p_buttons && p_buttons->play_combobox) {
-        gtk_combo_box_set_active(GTK_COMBO_BOX(p_buttons->play_combobox), state.play_mode);
+        safe_combo_box_set_active(p_buttons->play_combobox, state.play_mode);
     }
     createSongList();
     return 0;
@@ -1431,7 +1516,7 @@ static DB_misc_t plugin = {
     .plugin.name = "Playback Buttons",
     .plugin.descr = "Plugin to easily change the playback shuffle and repeat.",
     .plugin.copyright =
-        "Copyright (C) 2020-2025 kpcee\n"
+        "Copyright (C) 2020-2026 kpcee\n"
         "\n"
         "This program is free software; you can redistribute it and/or\n"
         "modify it under the terms of the GNU General Public License\n"
